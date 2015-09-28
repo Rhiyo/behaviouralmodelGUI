@@ -1,5 +1,9 @@
 package com.behaviouralmodel.gui;
 
+import behaviouralmodel.Building;
+import behaviouralmodel.Unit;
+import behaviouralmodel.UnitMember;
+
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -34,7 +38,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
-
+import com.behaviouralmodel.*;
 public class BMGui extends ApplicationAdapter implements InputProcessor {
 	
 	public static enum SelectionMode{
@@ -45,7 +49,6 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 	int gridWidth;
 	int gridHeight;
 	SelectionMode currentMode = SelectionMode.Normal;
-	
 	//When starting to build building
 	Vector2 buildingStart;
 	Building newBuilding;
@@ -63,10 +66,11 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 	private int _mouseButtonDown;
 	
 	//Test unit list
-	Array<Array<Vector2>> squads;
-	Array<Vector2> units;
+	//Array<Array<Vector2>> squads;
+	//Array<Vector2> units;
 	
 	//Test buildings
+	/*
 	private class Building{
 		public Vector2 p0;
 		public Vector2 door;
@@ -78,7 +82,9 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 			this.height = height;
 		}
 	}
+	*/
 	Array<Building> buildings;
+	Array<Unit> units;
 	
 	//Create stage for UI
 	Stage stage;
@@ -108,13 +114,12 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 	      _lastMouseWorldPressPos = new Vector3();
 	      _lastMouseWorldReleasePos = new Vector3();
 	      _lastMouseScreenPos = new Vector3();
-
-	      //Test units
-	      squads = new Array<Array<Vector2>>();
-	      units = new Array<Vector2>();
 	      
 	      //Test buildings
 	      buildings = new Array<Building>();
+	      
+	      //Test Units
+	      units = new Array<Unit>();
 	      
 	      //Setup UI
 	      stage = new Stage();
@@ -139,7 +144,7 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 	      buttonStyle.over = skin.getDrawable("over");
 	      buttonStyle.font = new BitmapFont();
 	      buttonStyle.fontColor = Color.WHITE;
-	      createBuildingBtn = new ImageTextButton("BUILDNG", buttonStyle);
+	      createBuildingBtn = new ImageTextButton("BUILDING", buttonStyle);
 	      createBuildingBtn.setPosition(10, 500-30);
 	      //createBuildingBtn.setBounds(0, 0, buildingTexture.getWidth(),
 	    	//	  buildingTexture.getHeight());
@@ -237,20 +242,21 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 		//Draw buildings
 		for(Building building : buildings){
 			shapeRenderer.setColor(Color.TEAL);
-			shapeRenderer.rect(building.p0.x-.5f, (gridHeight-building.p0.y)-.5f, 
-					building.width, -building.height);
+			shapeRenderer.rect(building.getX() -.5f, (gridHeight-building.getY())-.5f, 
+					building.getWidth(), -building.getHeight());
 			//Draw building door
 			shapeRenderer.setColor(Color.YELLOW);
-			shapeRenderer.rect(building.p0.x+building.door.x-.5f, (gridHeight-(building.p0.y+building.door.y))-.5f, 
+			shapeRenderer.rect(building.getDoorX()-.5f, (gridHeight-(building.getDoorY()))-.5f, 
 					1, -1);
 		}		
 
 
 		//Draw units at their position as circles
 		shapeRenderer.setColor(Color.PINK);
-		for(Array<Vector2> squad : squads){
-			for(Vector2 unit : squad){
-				shapeRenderer.circle(unit.x, unit.y, 0.4f, 10);
+		for(Unit unit : units){
+			for(UnitMember unitMember : unit.GetUnitMembers()){
+				shapeRenderer.circle(unit.getX()+unitMember.getX(), gridHeight-1-unit.getY()+unitMember.getY(), 0.4f, 10);
+				Gdx.app.log("", ""+unitMember.getY());
 			}
 		}
 		Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -290,9 +296,9 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
     		shapeRenderer.setColor(new Color(1,0,0,0.4f));
     		
     		if(hoverGridPos!=null && newBuilding != null){
-    			Vector2 start = new Vector2(newBuilding.p0);
-    			Vector2 end = new Vector2(newBuilding.p0.x+newBuilding.width,
-    					newBuilding.p0.y+newBuilding.height);
+    			Vector2 start = new Vector2(newBuilding.getX(),newBuilding.getY());
+    			Vector2 end = new Vector2(newBuilding.getX()+newBuilding.getWidth(),
+    					newBuilding.getY()+newBuilding.getHeight());
     			for(int i=(int) start.x;i<end.x;i++){
         			for(int j=(int) start.y+1;j<=end.y;j++){
             			shapeRenderer.rect(i-.5f, (gridHeight-j)-.5f, 
@@ -389,7 +395,7 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 		   }
 		   if(((int)(end.x-buildingStart.x)+1 >= 2 && (int)(end.y-buildingStart.y)+1 >=3) ||
 		   ((int)(end.x-buildingStart.x)+1 >= 3 && (int)(end.y-buildingStart.y)+1 >=2)){
-				newBuilding = new Building(buildingStart, (int)(end.x-buildingStart.x)+1,
+				newBuilding = new Building((int)buildingStart.x, (int)buildingStart.y, (int)(end.x-buildingStart.x)+1,
 						(int)(end.y-buildingStart.y)+1);
 				   buildingStart = null;
 				   currentMode = SelectionMode.DoorPlacing;
@@ -403,17 +409,16 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 	   if(currentMode == SelectionMode.DoorPlacing && newBuilding != null
 			   && hoverGridPos != null){
 		   Vector2 doorPos = new Vector2(hoverGridPos);
-		   if(doorPos.x >= newBuilding.p0.x && 
-				   (doorPos.x > newBuilding.p0.x &&
-					doorPos.x < newBuilding.p0.x + newBuilding.width-1 &&
-				   (doorPos.y == newBuilding.p0.y ||
-					doorPos.y == newBuilding.p0.y + newBuilding.height-1))||
-				   (doorPos.y > newBuilding.p0.y &&
-					doorPos.y < newBuilding.p0.y + newBuilding.height-1 &&
-					(doorPos.x== newBuilding.p0.x ||
-					doorPos.x == newBuilding.p0.x + newBuilding.width-1))){
-			  newBuilding.door = new Vector2(doorPos.x-newBuilding.p0.x,
-					  doorPos.y-newBuilding.p0.y);
+		   if(doorPos.x >= newBuilding.getX() && 
+				   (doorPos.x > newBuilding.getX() &&
+					doorPos.x < newBuilding.getX() + newBuilding.getWidth()-1 &&
+				   (doorPos.y == newBuilding.getY() ||
+					doorPos.y == newBuilding.getY() + newBuilding.getHeight()-1))||
+				   (doorPos.y > newBuilding.getY() &&
+					doorPos.y < newBuilding.getY() + newBuilding.getHeight()-1 &&
+					(doorPos.x== newBuilding.getX() ||
+					doorPos.x == newBuilding.getX() + newBuilding.getWidth()-1))){
+			  newBuilding.SetDoor((int)doorPos.x, (int)doorPos.y);
 			  buildings.add(newBuilding);
 		      Label text = new Label(""+buildings.size, textStyle);
 		      text.setAlignment(Align.left);
@@ -462,14 +467,15 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 		if(currentMode == SelectionMode.UnitPlacing && hoverGridPos!=null){
 			if(hoverGridPos.x-1 >= 0 && hoverGridPos.x+1 < gridWidth &&
 					hoverGridPos.y-1 >= 0 && hoverGridPos.y+1 < gridHeight){
-				final Array<Vector2> units = new Array<Vector2>();
-			      units.add(new Vector2(hoverGridPos.x-1, gridHeight-hoverGridPos.y-2));
-			      units.add(new Vector2(hoverGridPos.x-1, gridHeight-hoverGridPos.y));
-			      units.add(new Vector2(hoverGridPos.x+1, gridHeight-hoverGridPos.y-2));
-			      units.add(new Vector2(hoverGridPos.x+1, gridHeight-hoverGridPos.y));
-			      squads.add(units);
+				//final Array<Vector2> units = new Array<Vector2>();
+			      //units.add(new Vector2(hoverGridPos.x-1, gridHeight-hoverGridPos.y-2));
+			      //units.add(new Vector2(hoverGridPos.x-1, gridHeight-hoverGridPos.y));
+			      //units.add(new Vector2(hoverGridPos.x+1, gridHeight-hoverGridPos.y-2));
+			      //units.add(new Vector2(hoverGridPos.x+1, gridHeight-hoverGridPos.y));
+				final Unit newUnit = new Unit((int)hoverGridPos.x, (int)hoverGridPos.y);
+			      units.add(newUnit);
 			      currentMode = SelectionMode.Normal;
-			      Label text = new Label(""+squads.size, textStyle);
+			      Label text = new Label(""+units.size, textStyle);
 			      text.setAlignment(Align.left);
 			      //Building button
 			      Texture buildingTexture = new Texture("Delete.png");
@@ -490,11 +496,11 @@ public class BMGui extends ApplicationAdapter implements InputProcessor {
 			    	//	  buildingTexture.getHeight());
 			      createBuildingBtn.addListener(new ClickListener() {
 			            
-			            Array<Vector2> storedSquad = units;
+			            Unit storedUnit = newUnit;
 			            Table removedTable = rowTable;
 			            @Override
 			            public void clicked(InputEvent event, float x, float y) {
-			            	squads.removeValue(units, false);
+			            	units.removeValue(newUnit, false);
 			            	unitScrollTable.removeActor(rowTable);
 			            }
 			            
